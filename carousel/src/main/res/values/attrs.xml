@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--轮播图控制-->
+    <attr name="mj_carousel_orientation" format="enum">
+        <enum name="horizontal" value="0" />
+        <enum name="vertical" value="1" />
+    </attr>
+    <attr name="mj_carousel_infinite" format="boolean" />
+    <attr name="mj_carousel_scale" format="float" />
+    <attr name="mj_carousel_item_interval" format="dimension|reference" />
+    <attr name="mj_carousel_alpha_side" format="float" />
+    <!--指示器控制-->
+    <attr name="mj_indicator_visibility" format="enum">
+        <enum name="visible" value="0x00000000" />
+        <enum name="invisible" value="0x00000004" />
+        <enum name="gone" value="0x00000008" />
+    </attr>
+    <attr name="mj_indicator_src_unSelect" format="reference" />
+    <attr name="mj_indicator_src_selected" format="reference" />
+    <attr name="mj_indicator_color_unSelect" format="color|reference" />
+    <attr name="mj_indicator_color_selected" format="color|reference" />
+    <attr name="mj_indicator_divider_space" format="dimension|reference" />
+    <attr name="mj_indicator_gravity" format="flags">
+        <flag name="top" value="0x30" />
+        <flag name="bottom" value="0x50" />
+        <flag name="left" value="0x03" />
+        <flag name="right" value="0x05" />
+        <flag name="center_vertical" value="0x10" />
+        <flag name="center_horizontal" value="0x01" />
+        <flag name="center" value="0x11" />
+        <flag name="start" value="0x00800003" />
+        <flag name="end" value="0x00800005" />
+    </attr>
+    <attr name="mj_indicator_margin_left" format="dimension|reference" />
+    <attr name="mj_indicator_margin_top" format="dimension|reference" />
+    <attr name="mj_indicator_margin_right" format="dimension|reference" />
+    <attr name="mj_indicator_margin_bottom" format="dimension|reference" />
+    <!--自动播放-->
+    <attr name="mj_play_duration" format="integer" />
+    <attr name="mj_play_auto" format="boolean" /><!--是否自动播放-->
+
+    <declare-styleable name="CarouselView2">
+        <!--轮播图控制-->
+        <attr name="mj_carousel_orientation" />
+        <attr name="mj_carousel_infinite" />
+        <attr name="mj_carousel_scale" />
+        <attr name="mj_carousel_alpha_side" />
+        <attr name="mj_carousel_item_interval" />
+        <attr name="mj_carousel_userViewPager2" format="boolean" />
+        <attr name="mj_carousel_margin_to_parent" format="dimension|reference" />
+        <!--指示器控制-->
+        <attr name="mj_indicator_visibility" />
+        <attr name="mj_indicator_src_unSelect" />
+        <attr name="mj_indicator_src_selected" />
+        <attr name="mj_indicator_color_unSelect" />
+        <attr name="mj_indicator_color_selected" />
+        <attr name="mj_indicator_divider_space" />
+        <attr name="mj_indicator_gravity" />
+        <attr name="mj_indicator_margin_left" />
+        <attr name="mj_indicator_margin_top" />
+        <attr name="mj_indicator_margin_right" />
+        <attr name="mj_indicator_margin_bottom" />
+        <!--自动播放-->
+        <attr name="mj_play_duration" />
+        <attr name="mj_play_auto" />
+    </declare-styleable>
+    <declare-styleable name="CarouselView">
+        <!--轮播图控制-->
+        <attr name="mj_carousel_orientation" />
+        <attr name="mj_carousel_infinite" />
+        <attr name="mj_carousel_scale" />
+        <attr name="mj_carousel_item_interval" />
+        <attr name="mj_carousel_reverse_layout" format="boolean" />
+        <attr name="mj_carousel_alpha_center" format="float" />
+        <attr name="mj_carousel_alpha_side" />
+        <attr name="mj_carousel_max_visible_count" format="integer" /><!--一般不需要设置-->
+        <attr name="mj_carousel_z_alignment" format="enum">
+            <enum name="left_on_top" value="1" />
+            <enum name="right_on_top" value="2" />
+            <enum name="center_on_top" value="3" />
+        </attr>
+        <!--指示器控制-->
+        <attr name="mj_indicator_visibility" />
+        <attr name="mj_indicator_src_unSelect" />
+        <attr name="mj_indicator_src_selected" />
+        <attr name="mj_indicator_color_unSelect" />
+        <attr name="mj_indicator_color_selected" />
+        <attr name="mj_indicator_divider_space" />
+        <attr name="mj_indicator_gravity" />
+        <attr name="mj_indicator_margin_left" />
+        <attr name="mj_indicator_margin_top" />
+        <attr name="mj_indicator_margin_right" />
+        <attr name="mj_indicator_margin_bottom" />
+        <!--自动播放-->
+        <attr name="mj_play_duration" />
+        <attr name="mj_play_auto" />
+    </declare-styleable>
+</resources>
