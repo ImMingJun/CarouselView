@@ -3,13 +3,14 @@ package com.ming.carousel.layoutmanager;
 import android.content.Context;
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import android.util.SparseArray;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Interpolator;
-
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 
@@ -711,7 +712,9 @@ public abstract class ViewPagerLayoutManager extends LinearLayoutManager {
             }
         }
 
-        currentFocusView.requestFocus();
+        if (null != currentFocusView) {
+            currentFocusView.requestFocus();
+        }
     }
 
     private boolean useMaxVisibleCount() {
@@ -872,6 +875,11 @@ public abstract class ViewPagerLayoutManager extends LinearLayoutManager {
         this.onPageChangeListener = onPageChangeListener;
     }
 
+    /**
+     * 不建议使用，一张图片时，从不无无限循环切换到无限循环状态，会空白，
+     * 外部使用其他方案代替解决无限循环展示功能
+     */
+    @Deprecated
     public void setInfinite(boolean enable) {
         assertNotInLayoutOrScroll(null);
         if (enable == mInfinite) {

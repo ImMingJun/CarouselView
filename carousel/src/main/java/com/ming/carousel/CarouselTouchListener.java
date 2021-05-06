@@ -1,11 +1,11 @@
 package com.ming.carousel;
 
+import androidx.core.view.GestureDetectorCompat;
+import androidx.recyclerview.widget.RecyclerView;
+
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
-
-import androidx.core.view.GestureDetectorCompat;
-import androidx.recyclerview.widget.RecyclerView;
 
 import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
 
@@ -13,23 +13,23 @@ import static androidx.recyclerview.widget.RecyclerView.NO_POSITION;
  * created by cmj on 2019-05-29
  * for:轮播图点击事件
  */
-class CarouselTouchListener implements RecyclerView.OnItemTouchListener {
+class CarouselTouchListener<E> implements RecyclerView.OnItemTouchListener {
 
     private GestureDetectorCompat mGestureDetector;
 
-    private OnItemClickListener mOnItemClickListener;
-    private OnItemLongClickListener mOnItemLongClickListener;
-    private OnItemDoubleClickListener mOnItemDoubleClickListener;
+    private OnItemClickListener<E> mOnItemClickListener;
+    private OnItemLongClickListener<E> mOnItemLongClickListener;
+    private OnItemDoubleClickListener<E> mOnItemDoubleClickListener;
 
-    CarouselTouchListener(OnItemClickListener mOnItemClickListener) {
+    CarouselTouchListener(OnItemClickListener<E> mOnItemClickListener) {
         this.mOnItemClickListener = mOnItemClickListener;
     }
 
-    CarouselTouchListener(OnItemLongClickListener mOnItemLongClickListener) {
+    CarouselTouchListener(OnItemLongClickListener<E> mOnItemLongClickListener) {
         this.mOnItemLongClickListener = mOnItemLongClickListener;
     }
 
-    CarouselTouchListener(OnItemDoubleClickListener mOnItemDoubleClickListener) {
+    CarouselTouchListener(OnItemDoubleClickListener<E> mOnItemDoubleClickListener) {
         this.mOnItemDoubleClickListener = mOnItemDoubleClickListener;
     }
 
@@ -37,7 +37,7 @@ class CarouselTouchListener implements RecyclerView.OnItemTouchListener {
         return mOnItemClickListener;
     }
 
-    void setOnItemClickListener(OnItemClickListener mOnItemClickListener) {
+    void setOnItemClickListener(OnItemClickListener<E> mOnItemClickListener) {
         this.mOnItemClickListener = mOnItemClickListener;
     }
 
@@ -45,7 +45,7 @@ class CarouselTouchListener implements RecyclerView.OnItemTouchListener {
         return mOnItemLongClickListener;
     }
 
-    void setOnItemLongClickListener(OnItemLongClickListener mOnItemLongClickListener) {
+    void setOnItemLongClickListener(OnItemLongClickListener<E> mOnItemLongClickListener) {
         this.mOnItemLongClickListener = mOnItemLongClickListener;
     }
 
@@ -53,13 +53,12 @@ class CarouselTouchListener implements RecyclerView.OnItemTouchListener {
         return mOnItemDoubleClickListener;
     }
 
-    void setOnItemDoubleClickListener(OnItemDoubleClickListener mOnItemDoubleClickListener) {
+    void setOnItemDoubleClickListener(OnItemDoubleClickListener<E> mOnItemDoubleClickListener) {
         this.mOnItemDoubleClickListener = mOnItemDoubleClickListener;
     }
 
-
     @Override
-    public boolean onInterceptTouchEvent(final RecyclerView rv, MotionEvent e) {
+    public boolean onInterceptTouchEvent(RecyclerView rv, MotionEvent e) {
         if (null == mGestureDetector) {
             mGestureDetector = new GestureDetectorCompat(rv.getContext(), new GestureDetector.SimpleOnGestureListener() {
 
@@ -70,7 +69,8 @@ class CarouselTouchListener implements RecyclerView.OnItemTouchListener {
                         int position = rv.getChildLayoutPosition(childView);
 
                         if (position != NO_POSITION && rv.getAdapter() instanceof CarouselAdapter) {
-                            mOnItemClickListener.onItemClick(childView, (CarouselAdapter) rv.getAdapter(), position);
+                            CarouselAdapter<E> adapter = (CarouselAdapter<E>) rv.getAdapter();
+                            mOnItemClickListener.onItemClick(adapter.getItem(position), position);
                             return true;
                         }
                     }
@@ -83,7 +83,8 @@ class CarouselTouchListener implements RecyclerView.OnItemTouchListener {
                     if (null != mOnItemLongClickListener && null != childView) {
                         int position = rv.getChildLayoutPosition(childView);
                         if (position != NO_POSITION && rv.getAdapter() instanceof CarouselAdapter) {
-                            mOnItemLongClickListener.onItemLongClick(childView, (CarouselAdapter) rv.getAdapter(), position);
+                            CarouselAdapter<E> adapter = (CarouselAdapter<E>) rv.getAdapter();
+                            mOnItemLongClickListener.onItemLongClick(adapter.getItem(position), position);
                         }
                     }
                 }
@@ -95,7 +96,8 @@ class CarouselTouchListener implements RecyclerView.OnItemTouchListener {
                         if (null != mOnItemDoubleClickListener && null != childView) {
                             int position = rv.getChildLayoutPosition(childView);
                             if (position != NO_POSITION && rv.getAdapter() instanceof CarouselAdapter) {
-                                mOnItemDoubleClickListener.onItemDoubleClick(childView, (CarouselAdapter) rv.getAdapter(), position);
+                                CarouselAdapter<E> adapter = (CarouselAdapter<E>) rv.getAdapter();
+                                mOnItemDoubleClickListener.onItemDoubleClick(adapter.getItem(position), position);
                             }
                         }
                     }
@@ -104,7 +106,7 @@ class CarouselTouchListener implements RecyclerView.OnItemTouchListener {
 
             });
         }
-       return mGestureDetector.onTouchEvent(e);
+        return mGestureDetector.onTouchEvent(e);
     }
 
     @Override

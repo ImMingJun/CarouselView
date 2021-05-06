@@ -77,44 +77,60 @@ public class CarouselLayoutManager extends ViewPagerLayoutManager {
 
     public void setItemSpace(float itemSpace) {
         assertNotInLayoutOrScroll(null);
-        if (this.itemSpace == itemSpace) return;
+        if (this.itemSpace == itemSpace) {
+            return;
+        }
         this.itemSpace = itemSpace;
         removeAllViews();
     }
 
     public void setMinScale(float minScale) {
         assertNotInLayoutOrScroll(null);
-        if (this.minScale == minScale) return;
+        if (this.minScale == minScale) {
+            return;
+        }
         this.minScale = minScale;
         removeAllViews();
     }
 
     public void setMaxAlpha(float maxAlpha) {
         assertNotInLayoutOrScroll(null);
-        if (maxAlpha > 1) maxAlpha = 1;
-        if (this.maxAlpha == maxAlpha) return;
+        if (maxAlpha > 1) {
+            maxAlpha = 1;
+        }
+        if (this.maxAlpha == maxAlpha) {
+            return;
+        }
         this.maxAlpha = maxAlpha;
         requestLayout();
     }
 
     public void setMinAlpha(float minAlpha) {
         assertNotInLayoutOrScroll(null);
-        if (minAlpha < 0) minAlpha = 0;
-        if (this.minAlpha == minAlpha) return;
+        if (minAlpha < 0) {
+            minAlpha = 0;
+        }
+        if (this.minAlpha == minAlpha) {
+            return;
+        }
         this.minAlpha = minAlpha;
         requestLayout();
     }
 
     public void setMoveSpeed(float moveSpeed) {
         assertNotInLayoutOrScroll(null);
-        if (this.moveSpeed == moveSpeed) return;
+        if (this.moveSpeed == moveSpeed) {
+            return;
+        }
         this.moveSpeed = moveSpeed;
     }
 
     public void setZAlignment(int zAlignment) {
         assertNotInLayoutOrScroll(null);
         assertZAlignmentState(zAlignment);
-        if (this.zAlignment == zAlignment) return;
+        if (this.zAlignment == zAlignment) {
+            return;
+        }
         this.zAlignment = zAlignment;
         requestLayout();
     }
@@ -127,6 +143,9 @@ public class CarouselLayoutManager extends ViewPagerLayoutManager {
     @Override
     protected void setItemViewProperty(View itemView, float targetOffset) {
         float scale = calculateScale(targetOffset + mSpaceMain);
+        if (Float.isNaN(scale)) {
+            return;
+        }
         itemView.setScaleX(scale);
         itemView.setScaleY(scale);
         final float alpha = calAlpha(targetOffset);
@@ -139,20 +158,26 @@ public class CarouselLayoutManager extends ViewPagerLayoutManager {
      */
     private float calculateScale(float x) {
         float deltaX = Math.abs(x - mSpaceMain);
-        if (deltaX - mDecoratedMeasurement > 0) deltaX = mDecoratedMeasurement;
+        if (deltaX - mDecoratedMeasurement > 0) {
+            deltaX = mDecoratedMeasurement;
+        }
         return 1f - deltaX / mDecoratedMeasurement * (1f - minScale);
     }
 
     private float calAlpha(float targetOffset) {
         final float offset = Math.abs(targetOffset);
         float alpha = (minAlpha - maxAlpha) / mInterval * offset + maxAlpha;
-        if (offset >= mInterval) alpha = minAlpha;
+        if (offset >= mInterval) {
+            alpha = minAlpha;
+        }
         return alpha;
     }
 
     @Override
     protected float getDistanceRatio() {
-        if (moveSpeed == 0) return Float.MAX_VALUE;
+        if (moveSpeed == 0) {
+            return Float.MAX_VALUE;
+        }
         return 1 / moveSpeed;
     }
 
@@ -211,7 +236,7 @@ public class CarouselLayoutManager extends ViewPagerLayoutManager {
         public Builder(Context context, int itemSpace) {
             this.itemSpace = itemSpace;
             this.context = context;
-            orientation = HORIZONTAL;
+            orientation = ViewPagerLayoutManager.HORIZONTAL;
             minScale = SCALE_RATE;
             this.moveSpeed = DEFAULT_SPEED;
             maxAlpha = MAX_ALPHA;
@@ -243,13 +268,17 @@ public class CarouselLayoutManager extends ViewPagerLayoutManager {
         }
 
         public Builder setMaxAlpha(float maxAlpha) {
-            if (maxAlpha > 1) maxAlpha = 1;
+            if (maxAlpha > 1) {
+                maxAlpha = 1;
+            }
             this.maxAlpha = maxAlpha;
             return this;
         }
 
         public Builder setMinAlpha(float minAlpha) {
-            if (minAlpha < 0) minAlpha = 0;
+            if (minAlpha < 0) {
+                minAlpha = 0;
+            }
             this.minAlpha = minAlpha;
             return this;
         }

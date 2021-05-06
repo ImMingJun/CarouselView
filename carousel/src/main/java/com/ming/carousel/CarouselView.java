@@ -6,12 +6,11 @@ import android.content.res.TypedArray;
 import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewConfiguration;
+import android.view.animation.Interpolator;
 
 import androidx.annotation.FloatRange;
-import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -20,7 +19,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.ming.carousel.layoutmanager.OrientationHelper;
 import com.ming.carousel.layoutmanager.PageSnapHelper;
 import com.ming.carousel.layoutmanager.ViewPagerLayoutManager;
+import com.xinhuamm.carousel.R;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
@@ -28,28 +29,25 @@ import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 /**
  * created by 陈明军 at 2019/1/25
  * for:通用轮播组件
- * 注意：
- * 1、设置setOrientation(ViewPagerLayoutManager.VERTICAL)最好和固定的CarouselView高度配合使用
- * 2、缺陷：作为列表头部时，不能垂直滑动
+ *
+ * @author ming
+ * 特点：
+ * 1、内部使用{@link RecyclerView}实现的无限轮播图组件
+ * 2、所有的属性都可以调用java方法动态配置，example{@link CarouselView#setItemInterval(float)}，{@link CarouselView2}不行
+ * 3、轮播item区域较小时，大幅度快速滑动会出现回弹效果
+ * 4、{@link CarouselView#setOrientation(int)} 最好和固定的控件高度配合使用
+ * 5、可使用负数的item间距，{@link CarouselView2}不行
+ * 6、可设置轮播item切换动画插值器{@link CarouselView#setCarouselInterpolator(Interpolator)}
  */
-public class CarouselView<E> extends CarouselBaseView<E> {
+public class CarouselView<E> extends BaseCarouselView<E> {
 
-    //view
-    protected RecyclerView mRvCarousel;
-    protected RecyclerView mRvIndicators;
+    /**
+     * 视图相关
+     */
+    protected CarouselRecyclerView mRvCarousel;
     protected CarouselLayoutManager mCarouselLayoutManager;
-    protected DividerItemDecoration mIndicatorDivider;
-    protected GradientDrawable mIndicatorDividerDrawable;
 
-    //data
-    protected int mUnSelectIndicatorRes, mSelectedIndicatorRes;
-    protected int mUnSelectIndicatorColor, mSelectedIndicatorColor;
-    protected boolean mAutoPlay = false;
-    //state
-    protected boolean mIsPlaying = false;
-    protected boolean mCanPlay = false;
-    protected OnPageChangeListener mOnPageChangeListener;
-    protected CarouselTouchListener mCarouselTouchListener;
+    protected boolean userInputEnable;
 
     public CarouselView(Context context) {
         this(context, null);
@@ -66,24 +64,26 @@ public class CarouselView<E> extends CarouselBaseView<E> {
 
     @SuppressLint("ClickableViewAccessibility")
     protected void initView(Context context, AttributeSet attrs) {
-        touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
+//        touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         TypedArray ta = null;
         if (null != attrs) {
             ta = context.obtainStyledAttributes(attrs, R.styleable.CarouselView);
         }
         int carouselOrientation = optInt(ta, R.styleable.CarouselView_mj_carousel_orientation, OrientationHelper.HORIZONTAL);
         boolean carouselReverseLayout = optBoolean(ta, R.styleable.CarouselView_mj_carousel_reverse_layout, false);
-        boolean carouselInfinite = optBoolean(ta, R.styleable.CarouselView_mj_carousel_infinite, true);
+        isInfinite = optBoolean(ta, R.styleable.CarouselView_mj_carousel_infinite, true);
         float carouselScale = optFloat(ta, R.styleable.CarouselView_mj_carousel_scale, 0.8f);
         float carouselItemInterval = optDimension(ta, R.styleable.CarouselView_mj_carousel_item_interval, 0f);
         float carouselAlphaCenter = optFloat(ta, R.styleable.CarouselView_mj_carousel_alpha_center, 1f);
         float carouselAlphaSide = optFloat(ta, R.styleable.CarouselView_mj_carousel_alpha_side, 1f);
         int carouselMaxVisibleCount = optInt(ta, R.styleable.CarouselView_mj_carousel_max_visible_count, ViewPagerLayoutManager.DETERMINE_BY_MAX_AND_MIN);
-        int carouselZAlignment = optInt(ta, R.styleable.CarouselView_mj_carousel_z_alignment, CarouselLayoutManager.CENTER_ON_TOP);
+        int carouselZaxisAlignment = optInt(ta, R.styleable.CarouselView_mj_carousel_z_alignment, CarouselLayoutManager.CENTER_ON_TOP);
+        int carouselInterpolator = optInt(ta, R.styleable.CarouselView_mj_carousel_interpolator, -1);
+        userInputEnable = optBoolean(ta, R.styleable.CarouselView_mj_carousel_user_input_enable, true);
 
         int indicatorVisibility = optInt(ta, R.styleable.CarouselView_mj_indicator_visibility, View.GONE);
-        int indicatorResUnSelect = optResourceId(ta, R.styleable.CarouselView_mj_indicator_src_unSelect, R.drawable.carousel_ic_indicator_unselect);
-        int indicatorResSelected = optResourceId(ta, R.styleable.CarouselView_mj_indicator_src_selected, R.drawable.carousel_ic_indicator_selected);
+        int indicatorResUnSelect = optResourceId(ta, R.styleable.CarouselView_mj_indicator_src_unSelect, R.drawable.ic_carousel_indicator_unselect);
+        int indicatorResSelected = optResourceId(ta, R.styleable.CarouselView_mj_indicator_src_selected, R.drawable.ic_carousel_indicator_selected);
         int indicatorColorUnSelect = optColor(ta, R.styleable.CarouselView_mj_indicator_color_unSelect, 0);
         int indicatorColorSelected = optColor(ta, R.styleable.CarouselView_mj_indicator_color_selected, 0);
         int indicatorDividerSpace = optDimension(ta, R.styleable.CarouselView_mj_indicator_divider_space, 0);
@@ -103,6 +103,7 @@ public class CarouselView<E> extends CarouselBaseView<E> {
         mRvCarousel = container.findViewById(R.id.recyclerView_carousel);
         mRvIndicators = container.findViewById(R.id.recyclerView_indicators);
 
+        mRvCarousel.setScrollable(userInputEnable);
         //布局管理器
         mCarouselLayoutManager = CarouselLayoutManager
                 .Builder(context)
@@ -113,18 +114,34 @@ public class CarouselView<E> extends CarouselBaseView<E> {
                 .setMaxAlpha(carouselAlphaCenter)
                 .setMinAlpha(carouselAlphaSide)
                 .setMaxVisibleItemCount(carouselMaxVisibleCount)
-                .setZAlignment(carouselZAlignment)
+                .setZAlignment(carouselZaxisAlignment)
                 .build();
-        mCarouselLayoutManager.setInfinite(carouselInfinite);//默认无限循环
+        // 嵌套滚到到0或者size位置会导致滑动冲突，虽然处理了滑动但是效果不明显，所以不用这个，也已备注废弃
+        mCarouselLayoutManager.setInfinite(false);
+        mCarouselLayoutManager.setSmoothScrollInterpolator(CarouselInterpolatorUtil.getCarouselInterpolator(carouselInterpolator));
         mCarouselLayoutManager.setOnPageChangeListener(new ViewPagerLayoutManager.OnPageChangeListener() {
             @Override
             public void onPageSelected(int position) {
+                if (isInfinite) {
+                    RecyclerView.Adapter adapter = mRvCarousel.getAdapter();
+                    if (adapter instanceof CarouselAdapter) {
+                        CarouselAdapter carouselAdapter = (CarouselAdapter) adapter;
+                        position = carouselAdapter.getRealItemPosition(position);
+                    }
+                }
                 CarouselView.this.onPageSelected(position);
             }
 
             @Override
             public void onPageScrollStateChanged(int state) {
-                CarouselView.this.onPageScrollStateChanged(state);
+
+            }
+        });
+        mRvCarousel.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+                CarouselView.this.onPageScrollStateChanged(newState);
             }
         });
         mRvCarousel.setLayoutManager(mCarouselLayoutManager);
@@ -150,7 +167,7 @@ public class CarouselView<E> extends CarouselBaseView<E> {
         //设置indicators布局管理器
         mRvIndicators.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
         //设置indicators适配器
-        setIndicators(indicatorResUnSelect, indicatorResSelected);//设置指示器图片资源
+        setIndicators(indicatorResUnSelect, indicatorResSelected);
         setIndicatorsColor(indicatorColorUnSelect, indicatorColorSelected);
         setIndicatorsVisibility(indicatorVisibility);
     }
@@ -158,16 +175,6 @@ public class CarouselView<E> extends CarouselBaseView<E> {
     @Override
     protected int getContentLayoutId() {
         return R.layout.layout_carousel_view;
-    }
-
-    @Override
-    protected void onPageSelected(int position) {
-        super.onPageSelected(position);
-        //刷新指示器
-        refreshIndicators(position);
-        if (null != mOnPageChangeListener) {
-            mOnPageChangeListener.onPageSelected(position);
-        }
     }
 
     @Override
@@ -182,27 +189,28 @@ public class CarouselView<E> extends CarouselBaseView<E> {
         super.onPageScrollStateChanged(state);
         switch (state) {
             case RecyclerView.SCROLL_STATE_IDLE:
-                if (mCanPlay) startPlay();
+                if (mCanPlay && userInputEnable) {
+                    startPlay();
+                }
+                // 无限循环状态下，切换到最后的位置后，需要自动切换回中间位置
+                // 但是CarouselView发现会自动摇摆，遂先不支持自动切换回中间位置功能
+//                scrollToFirstPosition();
                 break;
             case RecyclerView.SCROLL_STATE_DRAGGING:
-                if (mCanPlay) stopPlay();//说动拖动停止播放
+                if (mCanPlay && userInputEnable) {
+                    stopPlay();//说动拖动停止播放
+                }
                 break;
             case RecyclerView.SCROLL_STATE_SETTLING:
+                break;
+            default:
                 break;
         }
     }
 
-    /**
-     * 刷新指示器my_bg_grade.png
-     *
-     * @param position 选中位置
-     */
-    protected void refreshIndicators(int position) {
-        if (null != mRvIndicators &&
-                mRvIndicators.getVisibility() == VISIBLE &&
-                null != mRvIndicators.getAdapter()) {
-            ((IndicatorsAdapter) mRvIndicators.getAdapter()).setSelectedPosition(position);
-        }
+    @Override
+    public void setUserInputEnable(boolean enable) {
+        mRvCarousel.setScrollable(enable);
     }
 
     /**
@@ -212,22 +220,53 @@ public class CarouselView<E> extends CarouselBaseView<E> {
      * @param data                数据
      */
     public void setPages(CarouselViewCreator<E> carouselViewCreator, List<E> data) {
-        this.mData = data;
-        mRvCarousel.setAdapter(new CarouselAdapter<>(carouselViewCreator, data));
+        // 设置数据
+        if (mData != data) {
+            if (null == mData) {
+                mData = new ArrayList<>(data);
+            } else {
+                mData.clear();
+                mData.addAll(data);
+            }
+        }
+        // 设置轮播图
+        CarouselAdapter<E> carouselAdapter;
+        RecyclerView.Adapter adapter = mRvCarousel.getAdapter();
+        if (null == adapter) {
+            carouselAdapter = new CarouselAdapter<>(carouselViewCreator, mData, isInfinite);
+            mRvCarousel.setAdapter(carouselAdapter);
+        } else {
+            carouselAdapter = (CarouselAdapter<E>) adapter;
+            carouselAdapter.setCarouselViewCreator(carouselViewCreator);
+            carouselAdapter.setInfinite(isInfinite);
+            carouselAdapter.setData(mData);
+        }
+        if (isInfinite) {
+            mRvCarousel.scrollToPosition(carouselAdapter.getMiddlePosition());
+        }
+        // 设置指示器
         if (mUnSelectIndicatorRes != 0 || mSelectedIndicatorRes != 0) {
-            mRvIndicators.setAdapter(new IndicatorsAdapter(data.size(), mUnSelectIndicatorRes, mSelectedIndicatorRes, mUnSelectIndicatorColor, mSelectedIndicatorColor));
+            IndicatorsAdapter indicatorsAdapter;
+            RecyclerView.Adapter adapter1 = mRvIndicators.getAdapter();
+            if (null == adapter1) {
+                indicatorsAdapter = new IndicatorsAdapter(mData.size(),
+                        mUnSelectIndicatorRes, mSelectedIndicatorRes,
+                        mUnSelectIndicatorColor, mSelectedIndicatorColor);
+            } else {
+                indicatorsAdapter = (IndicatorsAdapter) adapter1;
+                indicatorsAdapter.setItemCount(mData.size());
+                indicatorsAdapter.notifyDataSetChanged();
+            }
+            mRvIndicators.setAdapter(indicatorsAdapter);
         }
         if (mAutoPlay) {
             startPlay();
         }
     }
 
-    /**
-     * 设置方向
-     *
-     * @param orientation 方向
-     */
-    public void setOrientation(int orientation) {
+    @Override
+    public void setOrientation(@RecyclerView.Orientation int orientation) {
+        super.setOrientation(orientation);
         if (null != mCarouselLayoutManager) {
             mCarouselLayoutManager.setOrientation(orientation);
         }
@@ -244,43 +283,34 @@ public class CarouselView<E> extends CarouselBaseView<E> {
         }
     }
 
-    /**
-     * 设置Recyclerview的over-scroll mode
-     * {@link RecyclerView#setOverScrollMode}
-     */
+    @Override
     public void setRecyclerOverScrollMode(int overScrollMode) {
         mRvCarousel.setOverScrollMode(overScrollMode);
     }
 
-    /**
-     * 设置无限轮播
-     *
-     * @param isInfinite 是否支持无限轮播
-     */
-    public void setInfinite(boolean isInfinite) {
-        if (null != mCarouselLayoutManager) {
-            if (!isInfinite && null != mData &&
-                    (mCarouselLayoutManager.getCurrentPositionOffset() >= mData.size() ||
-                            mCarouselLayoutManager.getCurrentPositionOffset() < 0)) {
-                mCarouselLayoutManager.scrollToPosition(0);//如果关闭无限循环功能，就先移动到0位置，否则就会导致消失
+    @Override
+    protected void refreshInfinite() {
+        RecyclerView.Adapter adapter = mRvCarousel.getAdapter();
+        if (adapter instanceof CarouselAdapter) {
+            if (mCanPlay) {
+                stopPlay();
             }
-            mCarouselLayoutManager.setInfinite(isInfinite);
+            CarouselAdapter<E> carouselAdapter = ((CarouselAdapter) adapter);
+            carouselAdapter.setInfinite(isInfinite);
+            carouselAdapter.notifyDataSetChanged();
+            if (isInfinite) {
+                scrollToPosition(carouselAdapter.getMiddlePosition());
+            } else {
+                scrollToPosition(0);
+            }
+            if (mCanPlay) {
+                startPlay();
+            }
         }
     }
 
-    /**
-     * @return 是否无限轮播
-     */
-    public boolean isInfinite() {
-        return null != mCarouselLayoutManager && mCarouselLayoutManager.getInfinite();
-    }
-
-    /**
-     * 设置中间和两侧的大小比例
-     *
-     * @param scale 比例
-     */
-    public void setScale(@FloatRange(from = 0.0f, to = 1.0) float scale) {
+    @Override
+    protected void refreshScale(float scale) {
         if (null != mCarouselLayoutManager) {
             mCarouselLayoutManager.setMinScale(scale);
         }
@@ -302,7 +332,8 @@ public class CarouselView<E> extends CarouselBaseView<E> {
      *
      * @param alpha 透明度
      */
-    public void setAlphaSide(@FloatRange(from = 0.0f, to = 1.0) float alpha) {
+    @Override
+    protected void refreshAlphaSide(float alpha) {
         if (null != mCarouselLayoutManager) {
             mCarouselLayoutManager.setMinAlpha(alpha);
         }
@@ -311,6 +342,7 @@ public class CarouselView<E> extends CarouselBaseView<E> {
     /**
      * 设置item之间的间距
      */
+    @Override
     public void setItemInterval(float dpInterval) {
         if (null != mCarouselLayoutManager) {
             mCarouselLayoutManager.setItemSpace(dpToPx(dpInterval));
@@ -344,120 +376,14 @@ public class CarouselView<E> extends CarouselBaseView<E> {
     }
 
     /**
-     * 设置指示器显示与隐藏
+     * 设置轮播图插值器
      *
-     * @param visibility 显示与隐藏
+     * @param interpolator 插值器
      */
-    public void setIndicatorsVisibility(int visibility) {
-        if (null != mRvIndicators &&
-                visibility != getIndicatorsVisibility()) {
-            mRvIndicators.setVisibility(visibility);
+    public void setCarouselInterpolator(Interpolator interpolator) {
+        if (null != mCarouselLayoutManager) {
+            mCarouselLayoutManager.setSmoothScrollInterpolator(interpolator);
         }
-    }
-
-    /**
-     * @return 指示器显示隐藏状态
-     */
-    public int getIndicatorsVisibility() {
-        return null == mRvIndicators ? GONE : mRvIndicators.getVisibility();
-    }
-
-    /**
-     * 设置指示器图片资源
-     *
-     * @param unSelectIndicatorRes 未选中的指示器资源
-     * @param selectedIndicatorRes 已选中的指示器资源
-     */
-    public void setIndicators(int unSelectIndicatorRes, int selectedIndicatorRes) {
-        this.mUnSelectIndicatorRes = unSelectIndicatorRes;
-        this.mSelectedIndicatorRes = selectedIndicatorRes;
-        if (null != mRvIndicators.getAdapter() && mRvIndicators.getAdapter() instanceof IndicatorsAdapter) {
-            ((IndicatorsAdapter) mRvIndicators.getAdapter()).setIndicatorsRes(unSelectIndicatorRes, selectedIndicatorRes);
-        }
-    }
-
-
-    /**
-     * 设置指示器颜色资源
-     *
-     * @param unSelectIndicatorColor 未选中的指示器颜色
-     * @param selectedIndicatorColor 已选中的指示器颜色
-     */
-    public void setIndicatorsColor(int unSelectIndicatorColor, int selectedIndicatorColor) {
-        this.mUnSelectIndicatorColor = unSelectIndicatorColor;
-        this.mSelectedIndicatorColor = selectedIndicatorColor;
-        if (null != mRvIndicators.getAdapter() && mRvIndicators.getAdapter() instanceof IndicatorsAdapter) {
-            ((IndicatorsAdapter) mRvIndicators.getAdapter()).setIndicatorsColor(unSelectIndicatorColor, selectedIndicatorColor);
-        }
-    }
-
-    /**
-     * 设置指示器分割线宽度
-     *
-     * @param space 宽度
-     */
-    public void setIndicatorsDividerSpace(@IntRange(from = 0) int space) {
-        mIndicatorDividerDrawable.setSize(space, MATCH_PARENT);
-        if (mRvIndicators.getItemDecorationCount() > 0) {
-            mRvIndicators.removeItemDecoration(mIndicatorDivider);
-        }
-        mRvIndicators.addItemDecoration(mIndicatorDivider);//重刷分割线,直接调用requestLayout不能马上生效
-    }
-
-    /**
-     * 设置指示器位置
-     *
-     * @param gravity 相对位置
-     * @see Gravity
-     */
-    public void setIndicatorsGravity(int gravity) {
-        LayoutParams layoutParams = (LayoutParams) mRvIndicators.getLayoutParams();
-        layoutParams.gravity = gravity;
-        mRvIndicators.setLayoutParams(layoutParams);
-    }
-
-    /**
-     * 设置指示器底部间距
-     *
-     * @param dpBottomMargin dp值
-     */
-    public void setIndicatorsBottomMargin(int dpBottomMargin) {
-        LayoutParams layoutParams = (LayoutParams) mRvIndicators.getLayoutParams();
-        layoutParams.bottomMargin = (int) dpToPx(dpBottomMargin);
-        mRvIndicators.setLayoutParams(layoutParams);
-    }
-
-    /**
-     * 设置指示器顶部间距
-     *
-     * @param dpTopMargin dp值
-     */
-    public void setIndicatorsTopMargin(int dpTopMargin) {
-        LayoutParams layoutParams = (LayoutParams) mRvIndicators.getLayoutParams();
-        layoutParams.topMargin = (int) dpToPx(dpTopMargin);
-        mRvIndicators.setLayoutParams(layoutParams);
-    }
-
-    /**
-     * 设置指示器左侧间距
-     *
-     * @param dpLeftMargin dp值
-     */
-    public void setIndicatorsLeftMargin(int dpLeftMargin) {
-        LayoutParams layoutParams = (LayoutParams) mRvIndicators.getLayoutParams();
-        layoutParams.leftMargin = (int) dpToPx(dpLeftMargin);
-        mRvIndicators.setLayoutParams(layoutParams);
-    }
-
-    /**
-     * 设置指示器右侧间距
-     *
-     * @param dpRightMargin dp值
-     */
-    public void setIndicatorsRightMargin(int dpRightMargin) {
-        LayoutParams layoutParams = (LayoutParams) mRvIndicators.getLayoutParams();
-        layoutParams.rightMargin = (int) dpToPx(dpRightMargin);
-        mRvIndicators.setLayoutParams(layoutParams);
     }
 
     /**
@@ -471,7 +397,9 @@ public class CarouselView<E> extends CarouselBaseView<E> {
      * 开始自动轮播
      */
     public void startPlay() {
-        if (mIsPlaying) return;
+        if (mIsPlaying) {
+            return;
+        }
         mIsPlaying = true;
         mCanPlay = true;
         mHandler.sendEmptyMessageDelayed(WHAT_AUTO_PLAY, mPlayDuration);
@@ -490,25 +418,32 @@ public class CarouselView<E> extends CarouselBaseView<E> {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        if (mCanPlay) startPlay();
+        if (mCanPlay) {
+            startPlay();
+        }
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        if (mCanPlay) stopPlay();
+        if (mCanPlay) {
+            stopPlay();
+        }
     }
 
     @Override
     protected void onWindowVisibilityChanged(int visibility) {
         super.onWindowVisibilityChanged(visibility);
         if (visibility == VISIBLE) {
-            if (mCanPlay) startPlay();
+            if (mCanPlay) {
+                startPlay();
+            }
         } else {
-            if (mCanPlay) stopPlay();
+            if (mCanPlay) {
+                stopPlay();
+            }
         }
     }
-
 
     /**
      * @return 当前中间Item的位置
@@ -524,8 +459,9 @@ public class CarouselView<E> extends CarouselBaseView<E> {
      * @param targetPosition 目标位置
      */
     public void scrollToPosition(int targetPosition) {
-        if (targetPosition < 0) return;
-        if (targetPosition >= mData.size()) return;
+        if (targetPosition < 0) {
+            return;
+        }
         if (null != mCarouselLayoutManager) {
             mCarouselLayoutManager.scrollToPosition(targetPosition);
         }
@@ -538,18 +474,20 @@ public class CarouselView<E> extends CarouselBaseView<E> {
      */
     public void smoothScrollToTargetViewForCarousel(View targetView) {
         final RecyclerView.LayoutManager layoutManager = mRvCarousel.getLayoutManager();
-        if (!(layoutManager instanceof ViewPagerLayoutManager)) return;
+        if (!(layoutManager instanceof ViewPagerLayoutManager)) {
+            return;
+        }
         final int targetPosition = ((ViewPagerLayoutManager) layoutManager).getLayoutPositionOfView(targetView);
         smoothScrollToPositionForCarousel(targetPosition);
     }
 
     /**
      * 滚动到目标位置
-     * 废弃原因：轮播图位置有-100，100这种大于数量的位置，使用此方法区跳转到指定轮播图会不准
+     * 私有原因：轮播图位置有-100，100这种大于数量的位置，使用此方法区跳转到指定轮播图会不准
      *
      * @param targetPosition 目标位置
      */
-    public void smoothScrollToPositionForCarousel(int targetPosition) {
+    protected void smoothScrollToPositionForCarousel(int targetPosition) {
         final int delta = mCarouselLayoutManager.getOffsetToPosition(targetPosition);
         if (mCarouselLayoutManager.getOrientation() == RecyclerView.VERTICAL) {
             mRvCarousel.smoothScrollBy(0, delta);
@@ -563,12 +501,11 @@ public class CarouselView<E> extends CarouselBaseView<E> {
      *
      * @param onItemClickListener 点击监听器
      */
-    public void setOnItemClickListener(OnItemClickListener onItemClickListener) {
-        if (null == mCarouselTouchListener) {
-            mCarouselTouchListener = new CarouselTouchListener(onItemClickListener);
-            mRvCarousel.addOnItemTouchListener(mCarouselTouchListener);
-        } else {
-            mCarouselTouchListener.setOnItemClickListener(onItemClickListener);
+    public void setOnItemClickListener(OnItemClickListener<E> onItemClickListener) {
+        RecyclerView.Adapter adapter = mRvCarousel.getAdapter();
+        if (adapter instanceof CarouselAdapter) {
+            CarouselAdapter<E> carouselAdapter = (CarouselAdapter<E>) adapter;
+            carouselAdapter.setOnItemClickListener(onItemClickListener);
         }
     }
 
@@ -577,12 +514,11 @@ public class CarouselView<E> extends CarouselBaseView<E> {
      *
      * @param onItemLongClickListener 长按监听器
      */
-    public void setOnItemLongClickListener(OnItemLongClickListener onItemLongClickListener) {
-        if (null == mCarouselTouchListener) {
-            mCarouselTouchListener = new CarouselTouchListener(onItemLongClickListener);
-            mRvCarousel.addOnItemTouchListener(mCarouselTouchListener);
-        } else {
-            mCarouselTouchListener.setOnItemLongClickListener(onItemLongClickListener);
+    public void setOnItemLongClickListener(OnItemLongClickListener<E> onItemLongClickListener) {
+        RecyclerView.Adapter adapter = mRvCarousel.getAdapter();
+        if (adapter instanceof CarouselAdapter) {
+            CarouselAdapter<E> carouselAdapter = (CarouselAdapter<E>) adapter;
+            carouselAdapter.setOnItemLongClickListener(onItemLongClickListener);
         }
     }
 
@@ -591,13 +527,9 @@ public class CarouselView<E> extends CarouselBaseView<E> {
      *
      * @param onItemLongClickListener 双击监听器
      */
-    public void setOnItemDoubleClickListener(OnItemDoubleClickListener onItemLongClickListener) {
-        if (null == mCarouselTouchListener) {
-            mCarouselTouchListener = new CarouselTouchListener(onItemLongClickListener);
-            mRvCarousel.addOnItemTouchListener(mCarouselTouchListener);
-        } else {
-            mCarouselTouchListener.setOnItemDoubleClickListener(onItemLongClickListener);
-        }
+    @Deprecated
+    public void setOnItemDoubleClickListener(OnItemDoubleClickListener<E> onItemLongClickListener) {
+
     }
 
     /**
@@ -609,57 +541,59 @@ public class CarouselView<E> extends CarouselBaseView<E> {
         this.mOnPageChangeListener = onPageChangeListener;
     }
 
-    private float touchSlop = 0;
-    private float initialX = 0f;
-    private float initialY = 0f;
-
-    @Override
-    public boolean onInterceptTouchEvent(MotionEvent e) {
-        int orientation = mCarouselLayoutManager.getOrientation();
-        // Early return if child can't scroll in same direction as parent
-        if (canChildScroll(orientation, -1f) || canChildScroll(orientation, 1f)) {
-            if (e.getAction() == MotionEvent.ACTION_DOWN) {
-                initialX = e.getX();
-                initialY = e.getY();
-                getParent().requestDisallowInterceptTouchEvent(true);
-            } else if (e.getAction() == MotionEvent.ACTION_MOVE) {
-                float dx = e.getX() - initialX;
-                float dy = e.getY() - initialY;
-                boolean isVpHorizontal = orientation == RecyclerView.HORIZONTAL;
-                // assuming ViewPager2 touch-slop is 2x touch-slop of child
-                float scaledDx = dx * (isVpHorizontal ? .5f : 1f);
-                float scaledDy = dy * (isVpHorizontal ? 1f : .5f);
-                if (scaledDx > touchSlop || scaledDy > touchSlop) {
-                    if (isVpHorizontal == (scaledDy > scaledDx)) {
-                        // Gesture is perpendicular, allow all parents to intercept
-                        getParent().requestDisallowInterceptTouchEvent(false);
-                    } else {
-                        // Gesture is parallel, query child if movement in that direction is possible
-                        if (canChildScroll(orientation, isVpHorizontal ? dx : dy)) {
-                            // Child can scroll, disallow all parents to intercept
-                            getParent().requestDisallowInterceptTouchEvent(true);
-                        } else {
-                            // Child cannot scroll, allow all parents to intercept
-                            getParent().requestDisallowInterceptTouchEvent(false);
-                        }
-                    }
-                }
-            }
-        }
-        return super.onInterceptTouchEvent(e);
-    }
-
-    private boolean canChildScroll(int orientation, float delta) {
-        int direction = (int) -Math.signum(delta);
-        switch (orientation) {
-            case RecyclerView.HORIZONTAL:
-                return getChildAt(0).canScrollHorizontally(direction);
-            case RecyclerView.VERTICAL:
-                return getChildAt(0).canScrollVertically(direction);
-            default:
-                return false;
-        }
-
-    }
+// 原本通过ViewPagerLayoutManager实现无限循环时，CarouselView嵌套在ViewPager中会有滑动冲突，
+// 通过下面的事件分发逻辑解决嵌套滑动冲突问题，但是后续发现ViewPagerLayoutManager实现无限循环
+// ，会出现轮播图有数据但是不会显示，白屏的问题，所以改用其他方案代替无限循环功能，也就不需要下面的事件分发逻辑了。
+//    private float touchSlop = 0;
+//    private float initialX = 0f;
+//    private float initialY = 0f;
+//
+//    @Override
+//    public boolean onInterceptTouchEvent(MotionEvent e) {
+//        int orientation = mCarouselLayoutManager.getOrientation();
+//        // Early return if child can't scroll in same direction as parent
+//        if (canChildScroll(orientation, -1f) || canChildScroll(orientation, 1f)) {
+//            if (e.getAction() == MotionEvent.ACTION_DOWN) {
+//                initialX = e.getX();
+//                initialY = e.getY();
+//                getParent().requestDisallowInterceptTouchEvent(true);
+//            } else if (e.getAction() == MotionEvent.ACTION_MOVE) {
+//                float dx = e.getX() - initialX;
+//                float dy = e.getY() - initialY;
+//                boolean isVpHorizontal = orientation == RecyclerView.HORIZONTAL;
+//                // assuming ViewPager2 touch-slop is 2x touch-slop of child
+//                float scaledDx = dx * (isVpHorizontal ? .5f : 1f);
+//                float scaledDy = dy * (isVpHorizontal ? 1f : .5f);
+//                if (scaledDx > touchSlop || scaledDy > touchSlop) {
+//                    if (isVpHorizontal == (scaledDy > scaledDx)) {
+//                        // Gesture is perpendicular, allow all parents to intercept
+//                        getParent().requestDisallowInterceptTouchEvent(false);
+//                    } else {
+//                        // Gesture is parallel, query child if movement in that direction is possible
+//                        if (canChildScroll(orientation, isVpHorizontal ? dx : dy)) {
+//                            // Child can scroll, disallow all parents to intercept
+//                            getParent().requestDisallowInterceptTouchEvent(true);
+//                        } else {
+//                            // Child cannot scroll, allow all parents to intercept
+//                            getParent().requestDisallowInterceptTouchEvent(false);
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        return super.onInterceptTouchEvent(e);
+//    }
+//
+//    private boolean canChildScroll(int orientation, float delta) {
+//        int direction = (int) -Math.signum(delta);
+//        switch (orientation) {
+//            case RecyclerView.HORIZONTAL:
+//                return getChildAt(0).canScrollHorizontally(direction);
+//            case RecyclerView.VERTICAL:
+//                return getChildAt(0).canScrollVertically(direction);
+//            default:
+//                return false;
+//        }
+//    }
 
 }

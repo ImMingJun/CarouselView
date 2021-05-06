@@ -6,44 +6,58 @@ import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
+import android.view.animation.Interpolator;
 
-import androidx.annotation.IntRange;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 import androidx.viewpager2.widget.CompositePageTransformer;
-import androidx.viewpager2.widget.MarginPageTransformer;
 import androidx.viewpager2.widget.ViewPager2;
 
+import com.xinhuamm.carousel.R;
+
+import java.util.ArrayList;
 import java.util.List;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 
 /**
  * created by cmj on 2020/3/27
- * for:
+ * for:轮播图第二版
+ *
+ * @author ming
+ * 特点：
+ * 1、内部使用{@link ViewPager2}和{@link ViewPager}实现的无限轮播图组件，支持这俩切换使用
+ * 2、只支持部分属性动态配置，比{@link CarouselView}少
+ * 3、内部使用{@link ViewPager}实现时，垂直Vertical样式不支持嵌套滑动
+ * 4、CarouselView2为{@link ViewPager2}和{@link RecyclerView#VERTICAL}模式时，本身的布局高度必须固定，不允许使用{@link android.view.ViewGroup.LayoutParams#WRAP_CONTENT}
+ * 5、不允许使用负数间距，效果不好，请使用{@link CarouselView}，结合{@link CarouselLayoutManager#CENTER_ON_TOP}达到中间完全显示，两边被遮住的效果
+ * 6、可设置轮播item切换动画插值器{@link CarouselView#setCarouselInterpolator(Interpolator)}
+ * 7、ViewPager的自动切换页面效果不好，速度太快，可使用{@link CarouselView}
  */
-public class CarouselView2<E> extends CarouselBaseView<E> {
+public class CarouselView2<E> extends BaseCarouselView<E> {
 
-    protected ViewPager2 mViewPager2;
-    protected ViewPager mViewPager;
-    protected GradientDrawable mCarouselDividerDrawable;
-    protected RecyclerView mRvIndicators;
-    protected DividerItemDecoration mIndicatorDivider;
-    protected GradientDrawable mIndicatorDividerDrawable;
+    /**
+     * 视图相关
+     */
+    protected ViewPager2 viewPager2;
+    protected CarouselViewPager viewPager;
+    protected CarouselVerticalViewPager verticalViewPager;
 
-    protected int mUnSelectIndicatorRes, mSelectedIndicatorRes;
-    protected int mUnSelectIndicatorColor, mSelectedIndicatorColor;
-    protected boolean mAutoPlay = false;
-    protected boolean mIsPlaying = false;
-    protected boolean mCanPlay = false;
+    /**
+     * 配置相关
+     */
     protected boolean useViewPager2;
-    protected boolean isInfinite;
-
-    protected OnPageChangeListener mOnPageChangeListener;
+    protected int carouselOrientation;
+    protected boolean userInputEnable;
+    protected Interpolator interpolator;
+    protected Carousel2PageTransformer carousel2PageTransformer;
+    protected Carousel2MarginPageTransformer carousel2MarginPageTransformer;
+    protected CarouselPageTransformer carouselPageTransformer;
 
     public CarouselView2(@NonNull Context context) {
         this(context, null);
@@ -55,25 +69,28 @@ public class CarouselView2<E> extends CarouselBaseView<E> {
 
     public CarouselView2(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        init(attrs);
+        initView(context, attrs);
     }
 
-    protected void init(AttributeSet attrs) {
+    protected void initView(Context context, AttributeSet attrs) {
         TypedArray ta = null;
         if (null != attrs) {
             ta = mContext.obtainStyledAttributes(attrs, R.styleable.CarouselView2);
         }
-        int carouselOrientation = optInt(ta, R.styleable.CarouselView2_mj_carousel_orientation, RecyclerView.HORIZONTAL);
+        carouselOrientation = optInt(ta, R.styleable.CarouselView2_mj_carousel_orientation, RecyclerView.HORIZONTAL);
         float carouselScale = optFloat(ta, R.styleable.CarouselView2_mj_carousel_scale, 0.8f);
         float carouselAlphaSide = optFloat(ta, R.styleable.CarouselView2_mj_carousel_alpha_side, 1f);
         float carouselItemInterval = optDimension(ta, R.styleable.CarouselView2_mj_carousel_item_interval, 0f);
         int carouselMarginToParent = optDimension(ta, R.styleable.CarouselView2_mj_carousel_margin_to_parent, 0);
         isInfinite = optBoolean(ta, R.styleable.CarouselView2_mj_carousel_infinite, true);
-        useViewPager2 = optBoolean(ta, R.styleable.CarouselView2_mj_carousel_userViewPager2, true);
+        useViewPager2 = optBoolean(ta, R.styleable.CarouselView2_mj_carousel_useViewPager2, true);
+        userInputEnable = optBoolean(ta, R.styleable.CarouselView2_mj_carousel_user_input_enable, true);
+        int carouselInterpolator = optInt(ta, R.styleable.CarouselView2_mj_carousel_interpolator, CarouselInterpolatorEnum.DEFAULT);
+        interpolator = CarouselInterpolatorUtil.getCarouselInterpolator(carouselInterpolator);
 
         int indicatorVisibility = optInt(ta, R.styleable.CarouselView2_mj_indicator_visibility, View.GONE);
-        int indicatorResUnSelect = optResourceId(ta, R.styleable.CarouselView2_mj_indicator_src_unSelect, R.drawable.carousel_ic_indicator_unselect);
-        int indicatorResSelected = optResourceId(ta, R.styleable.CarouselView2_mj_indicator_src_selected, R.drawable.carousel_ic_indicator_selected);
+        int indicatorResUnSelect = optResourceId(ta, R.styleable.CarouselView2_mj_indicator_src_unSelect, R.drawable.ic_carousel_indicator_unselect);
+        int indicatorResSelected = optResourceId(ta, R.styleable.CarouselView2_mj_indicator_src_selected, R.drawable.ic_carousel_indicator_selected);
         int indicatorColorUnSelect = optColor(ta, R.styleable.CarouselView2_mj_indicator_color_unSelect, 0);
         int indicatorColorSelected = optColor(ta, R.styleable.CarouselView2_mj_indicator_color_selected, 0);
         int indicatorDividerSpace = optDimension(ta, R.styleable.CarouselView2_mj_indicator_divider_space, 0);
@@ -90,22 +107,22 @@ public class CarouselView2<E> extends CarouselBaseView<E> {
         }
 
         View container = inflate(mContext, getContentLayoutId(), this);
-        mViewPager = container.findViewById(R.id.viewPager_carousel);
-        mViewPager2 = container.findViewById(R.id.viewPager2_carousel);
         mRvIndicators = container.findViewById(R.id.recyclerView_indicators);
 
         if (useViewPager2) {
-            mViewPager.setVisibility(GONE);
-            mViewPager2.setVisibility(VISIBLE);
-            mViewPager2.setOffscreenPageLimit(1);
-            mViewPager2.setOrientation(carouselOrientation);
-            CarouselPageChangeListener carouselPageChangeListener = new CarouselPageChangeListener();
-            mViewPager2.registerOnPageChangeCallback(carouselPageChangeListener);
+            viewPager2 = container.findViewById(R.id.viewPager2_carousel);
+            viewPager2.setOffscreenPageLimit(1);
+            viewPager2.setUserInputEnabled(userInputEnable);
+            viewPager2.setOrientation(carouselOrientation);
+            ViewPager2PageChangeListener viewPager2PageChangeListener = new ViewPager2PageChangeListener();
+            viewPager2.registerOnPageChangeCallback(viewPager2PageChangeListener);
+            carousel2PageTransformer = new Carousel2PageTransformer(carouselScale, carouselAlphaSide, carouselOrientation);
+            carousel2MarginPageTransformer = new Carousel2MarginPageTransformer((int) carouselItemInterval);
             CompositePageTransformer transformers = new CompositePageTransformer();
-            transformers.addTransformer(new CarouselPageTransformer(carouselScale, carouselAlphaSide, carouselOrientation));
-            transformers.addTransformer(new MarginPageTransformer((int) carouselItemInterval));
-            mViewPager2.setPageTransformer(transformers);
-            View childView = mViewPager2.getChildAt(0);
+            transformers.addTransformer(carousel2PageTransformer);
+            transformers.addTransformer(carousel2MarginPageTransformer);
+            viewPager2.setPageTransformer(transformers);
+            View childView = viewPager2.getChildAt(0);
             if (childView instanceof RecyclerView) {
                 RecyclerView recyclerView = (RecyclerView) childView;
                 recyclerView.setClipToPadding(false);
@@ -116,9 +133,26 @@ public class CarouselView2<E> extends CarouselBaseView<E> {
                 }
             }
         } else {
-            mViewPager2.setVisibility(GONE);
-            mViewPager.setVisibility(VISIBLE);
-            //TODO
+            carouselPageTransformer = new CarouselPageTransformer(carouselScale, carouselAlphaSide, carouselOrientation);
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                verticalViewPager = container.findViewById(R.id.vertical_viewPager_carousel);
+                verticalViewPager.setOffscreenPageLimit(3);
+                verticalViewPager.setScrollable(userInputEnable);
+                ViewPagerPageChangeListener viewPagerPageChangeListener = new ViewPagerPageChangeListener();
+                verticalViewPager.setOnPageChangeListener(viewPagerPageChangeListener);
+                verticalViewPager.setPageMargin((int) carouselItemInterval);
+                verticalViewPager.setPageTransformer(true, carouselPageTransformer);
+                verticalViewPager.setPadding(0, carouselMarginToParent, 0, carouselMarginToParent);
+            } else {
+                viewPager = container.findViewById(R.id.viewPager_carousel);
+                viewPager.setOffscreenPageLimit(3);
+                viewPager.setScrollable(userInputEnable);
+                ViewPagerPageChangeListener viewPagerPageChangeListener = new ViewPagerPageChangeListener();
+                viewPager.addOnPageChangeListener(viewPagerPageChangeListener);
+                viewPager.setPageMargin((int) carouselItemInterval);
+                viewPager.setPageTransformer(true, carouselPageTransformer);
+                viewPager.setPadding(carouselMarginToParent, 0, carouselMarginToParent, 0);
+            }
         }
 
         //设置indicators布局参数
@@ -138,43 +172,47 @@ public class CarouselView2<E> extends CarouselBaseView<E> {
         //设置indicators布局管理器
         mRvIndicators.setLayoutManager(new LinearLayoutManager(mContext, LinearLayoutManager.HORIZONTAL, false));
         //设置indicators适配器
-        setIndicators(indicatorResUnSelect, indicatorResSelected);//设置指示器图片资源
+        setIndicators(indicatorResUnSelect, indicatorResSelected);
         setIndicatorsColor(indicatorColorUnSelect, indicatorColorSelected);
         setIndicatorsVisibility(indicatorVisibility);
     }
 
     @Override
     protected int getContentLayoutId() {
-        return R.layout.layout_carousel_view2;
-    }
-
-    @Override
-    protected void onPageSelected(int position) {
-        super.onPageSelected(position);
         if (useViewPager2) {
-            CarouselAdapter carouselAdapter = (CarouselAdapter) mViewPager2.getAdapter();
-            if (carouselAdapter != null) {
-                position = isInfinite ? carouselAdapter.toRealItemPosition(position) : position;
-            }
+            return R.layout.layout_carousel_view2_viewpager2;
         } else {
-            //TODO
-        }
-        //刷新指示器
-        refreshIndicators(position);
-        if (null != mOnPageChangeListener) {
-            mOnPageChangeListener.onPageSelected(position);
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                return R.layout.layout_carousel_view2_viewpager_vertical;
+            } else {
+                return R.layout.layout_carousel_view2_viewpager;
+            }
         }
     }
 
+    /**
+     * 切换到下一页会出现滑动过快的问题，但是使用ViewPagerScrollHelper实现的拖拽切换效果优化后会有新的问题
+     * setCurrentItem方法中判断了ViewPager是否正处于拖拽切换，是则直接抛出异常。
+     * 所以拖拽切换页面使用不合适，只能使用原生方法
+     */
     @Override
     public void smoothScrollToNextPage() {
         if (useViewPager2) {
-            if (null != mViewPager2) {
-                mViewPager2.setCurrentItem(mViewPager2.getCurrentItem() + 1);
+            if (null != viewPager2) {
+                viewPager2.setCurrentItem(viewPager2.getCurrentItem() + 1);
+//                ViewPagerScrollHelper.setCurrentItem(viewPager2, viewPager2.getCurrentItem() + 1, interpolator);
             }
         } else {
-            if (null != mViewPager) {
-                mViewPager.setCurrentItem(mViewPager.getCurrentItem() + 1);
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                if (null != verticalViewPager) {
+                    verticalViewPager.setCurrentItem(verticalViewPager.getCurrentItem() + 1);
+//                    ViewPagerScrollHelper.setCurrentItem(verticalViewPager, verticalViewPager.getCurrentItem() + 1, interpolator);
+                }
+            } else {
+                if (null != viewPager) {
+                    viewPager.setCurrentItem(viewPager.getCurrentItem() + 1);
+//                    ViewPagerScrollHelper.setCurrentItem(viewPager, viewPager.getCurrentItem() + 1, interpolator);
+                }
             }
         }
     }
@@ -184,68 +222,301 @@ public class CarouselView2<E> extends CarouselBaseView<E> {
         super.onPageScrollStateChanged(state);
         switch (state) {
             case ViewPager2.SCROLL_STATE_IDLE:
-                if (mCanPlay) startPlay();
-                if (useViewPager2 && isInfinite) {
-                    RecyclerView.Adapter adapter = mViewPager2.getAdapter();
-                    if (adapter instanceof CarouselAdapter) {
-                        CarouselAdapter carouselAdapter = (CarouselAdapter) adapter;
-                        int position = mViewPager2.getCurrentItem();
+                if (mCanPlay && userInputEnable) {
+                    startPlay();
+                }
+                scrollToFirstPosition();
+                break;
+            case ViewPager2.SCROLL_STATE_DRAGGING:
+                if (mCanPlay && userInputEnable) {
+                    //拖动停止播放
+                    stopPlay();
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * 滑动到最开始的位置
+     */
+    private void scrollToFirstPosition() {
+        if (isInfinite) {
+            if (useViewPager2) {
+                RecyclerView.Adapter adapter = viewPager2.getAdapter();
+                if (adapter instanceof CarouselAdapter) {
+                    CarouselAdapter carouselAdapter = (CarouselAdapter) adapter;
+                    int position = viewPager2.getCurrentItem();
+                    if (position == 0) {
+                        position = carouselAdapter.getMiddlePosition();
+                        viewPager2.setCurrentItem(position, false);
+                    } else if (position == carouselAdapter.getItemCount() - 1) {
+                        position = carouselAdapter.getMiddlePosition() + carouselAdapter.getRealItemCount() - 1;
+                        viewPager2.setCurrentItem(position, false);
+                    }
+                }
+            } else {
+                PagerAdapter pagerAdapter;
+                if (carouselOrientation == RecyclerView.VERTICAL) {
+                    pagerAdapter = verticalViewPager.getAdapter();
+                    if (pagerAdapter instanceof CarouselPagerAdapter) {
+                        CarouselPagerAdapter carouselPagerAdapter = (CarouselPagerAdapter) pagerAdapter;
+                        int position = verticalViewPager.getCurrentItem();
                         if (position == 0) {
-                            position = carouselAdapter.getMiddlePosition();
-                            mViewPager2.setCurrentItem(position, false);
-                        } else if (position == carouselAdapter.getItemCount() - 1) {
-                            position = carouselAdapter.getMiddlePosition() + carouselAdapter.getRealItemCount() - 1;
-                            mViewPager2.setCurrentItem(position, false);
+                            position = carouselPagerAdapter.getMiddlePosition();
+                            verticalViewPager.setCurrentItem(position, false);
+                        } else if (position == carouselPagerAdapter.getCount() - 1) {
+                            position = carouselPagerAdapter.getMiddlePosition() + carouselPagerAdapter.getRealItemCount() - 1;
+                            verticalViewPager.setCurrentItem(position, false);
+                        }
+                    }
+                } else {
+                    pagerAdapter = viewPager.getAdapter();
+                    if (pagerAdapter instanceof CarouselPagerAdapter) {
+                        CarouselPagerAdapter carouselPagerAdapter = (CarouselPagerAdapter) pagerAdapter;
+                        int position = viewPager.getCurrentItem();
+                        if (position == 0) {
+                            position = carouselPagerAdapter.getMiddlePosition();
+                            viewPager.setCurrentItem(position, false);
+                        } else if (position == carouselPagerAdapter.getCount() - 1) {
+                            position = carouselPagerAdapter.getMiddlePosition() + carouselPagerAdapter.getRealItemCount() - 1;
+                            viewPager.setCurrentItem(position, false);
                         }
                     }
                 }
-                break;
-            case ViewPager2.SCROLL_STATE_DRAGGING:
-                if (mCanPlay) stopPlay();//说动拖动停止播放
-                break;
-            case ViewPager2.SCROLL_STATE_SETTLING:
-                break;
+            }
         }
     }
 
-    /**
-     * 刷新指示器my_bg_grade.png
-     *
-     * @param position 选中位置
-     */
-    protected void refreshIndicators(int position) {
-        if (null != mRvIndicators &&
-                mRvIndicators.getVisibility() == VISIBLE &&
-                null != mRvIndicators.getAdapter()) {
-            ((IndicatorsAdapter) mRvIndicators.getAdapter()).setSelectedPosition(position);
+    @Override
+    public void setUserInputEnable(boolean enable) {
+        if (useViewPager2) {
+            viewPager2.setUserInputEnabled(enable);
+        } else {
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                verticalViewPager.setScrollable(enable);
+            } else {
+                viewPager.setScrollable(enable);
+            }
         }
     }
 
-    /**
-     * 设置无限轮播
-     *
-     * @param isInfinite 是否支持无限轮播
-     */
-    public void setInfinite(boolean isInfinite) {
-        if (this.isInfinite != isInfinite) {
-            this.isInfinite = isInfinite;
-            RecyclerView.Adapter adapter = mViewPager2.getAdapter();
-            if (adapter instanceof CarouselAdapter) {
-                if (mCanPlay) stopPlay();
-                CarouselAdapter<E> carouselAdapter = ((CarouselAdapter) adapter);
-                CarouselViewCreator<E> carouselViewCreator = carouselAdapter.getCarouselViewCreator();
-                List<E> data = carouselAdapter.getData();
+    @Override
+    public void setRecyclerOverScrollMode(int overScrollMode) {
+        if (useViewPager2) {
+            viewPager2.setOverScrollMode(overScrollMode);
+        } else {
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                verticalViewPager.setOverScrollMode(overScrollMode);
+            } else {
+                viewPager.setOverScrollMode(overScrollMode);
+            }
+        }
+    }
+
+    @Override
+    protected void refreshScale(float scale) {
+        if (useViewPager2) {
+            carousel2PageTransformer.setMinScale(scale);
+            viewPager2.requestTransform();
+        } else {
+            carouselPageTransformer = new CarouselPageTransformer(scale,
+                    carouselPageTransformer.getMinAlpha(), carouselOrientation);
+            PagerAdapter pagerAdapter;
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                verticalViewPager.setPageTransformer(true, carouselPageTransformer);
+                pagerAdapter = verticalViewPager.getAdapter();
+            } else {
+                viewPager.setPageTransformer(true, carouselPageTransformer);
+                pagerAdapter = viewPager.getAdapter();
+            }
+            if (pagerAdapter instanceof CarouselPagerAdapter) {
+                if (mCanPlay) {
+                    stopPlay();
+                }
+                CarouselPagerAdapter<E> carouselPagerAdapter = (CarouselPagerAdapter<E>) pagerAdapter;
+                CarouselViewCreator<E> carouselViewCreator = carouselPagerAdapter.getCarouselViewCreator();
+                List<E> data = mData;
+                mData = null;
+                if (carouselOrientation == RecyclerView.VERTICAL) {
+                    verticalViewPager.setAdapter(null);
+                } else {
+                    viewPager.setAdapter(null);
+                }
                 setPages(carouselViewCreator, data);
-                if (mCanPlay) startPlay();
+                if (mCanPlay) {
+                    startPlay();
+                }
+            }
+        }
+    }
+
+    @Override
+    protected void refreshAlphaSide(float alpha) {
+        if (useViewPager2) {
+            carousel2PageTransformer.setMinAlpha(alpha);
+            viewPager2.requestTransform();
+        } else {
+            carouselPageTransformer = new CarouselPageTransformer(carouselPageTransformer.getMinScale(),
+                    alpha, carouselOrientation);
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                verticalViewPager.setPageTransformer(true, carouselPageTransformer);
+            } else {
+                viewPager.setPageTransformer(true, carouselPageTransformer);
+            }
+        }
+    }
+
+    @Override
+    public void setItemInterval(float dpInterval) {
+        int marginPx = (int) dpToPx(dpInterval);
+        if (useViewPager2) {
+            carousel2MarginPageTransformer.setMargin(marginPx);
+            viewPager2.requestTransform();
+        } else {
+            PagerAdapter pagerAdapter;
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                verticalViewPager.setPageMargin(marginPx);
+                pagerAdapter = verticalViewPager.getAdapter();
+            } else {
+                viewPager.setPageMargin(marginPx);
+                pagerAdapter = viewPager.getAdapter();
+            }
+            if (pagerAdapter instanceof CarouselPagerAdapter) {
+                if (mCanPlay) {
+                    stopPlay();
+                }
+                CarouselPagerAdapter<E> carouselPagerAdapter = (CarouselPagerAdapter<E>) pagerAdapter;
+                CarouselViewCreator<E> carouselViewCreator = carouselPagerAdapter.getCarouselViewCreator();
+                List<E> data = mData;
+                mData = null;
+                if (carouselOrientation == RecyclerView.VERTICAL) {
+                    verticalViewPager.setAdapter(null);
+                } else {
+                    viewPager.setAdapter(null);
+                }
+                setPages(carouselViewCreator, data);
+                if (mCanPlay) {
+                    startPlay();
+                }
             }
         }
     }
 
     /**
-     * @return 是否无限轮播
+     * 设置距离父布局的边距
+     *
+     * @param dpMargin dp
      */
-    public boolean isInfinite() {
-        return isInfinite;
+    public void setMarginToParent(float dpMargin) {
+        int marginPx = (int) dpToPx(dpMargin);
+        if (useViewPager2) {
+            View childView = viewPager2.getChildAt(0);
+            if (childView instanceof RecyclerView) {
+                // 设置边距
+                RecyclerView recyclerView = (RecyclerView) childView;
+                recyclerView.setClipToPadding(false);
+                if (carouselOrientation == RecyclerView.HORIZONTAL) {
+                    recyclerView.setPadding(marginPx, 0, marginPx, 0);
+                } else {
+                    recyclerView.setPadding(0, marginPx, 0, marginPx);
+                }
+                // 重新刷新的适配器
+                RecyclerView.Adapter adapter = viewPager2.getAdapter();
+                if (adapter instanceof CarouselAdapter) {
+                    if (mCanPlay) {
+                        stopPlay();
+                    }
+                    CarouselAdapter<E> carouselAdapter = ((CarouselAdapter) adapter);
+                    CarouselViewCreator<E> carouselViewCreator = carouselAdapter.getCarouselViewCreator();
+                    List<E> data = mData;
+                    mData = null;
+                    viewPager2.setAdapter(null);
+                    setPages(carouselViewCreator, data);
+                    if (mCanPlay) {
+                        startPlay();
+                    }
+                }
+            }
+        } else {
+            PagerAdapter pagerAdapter;
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                verticalViewPager.setPadding(0, marginPx, 0, marginPx);
+                pagerAdapter = verticalViewPager.getAdapter();
+            } else {
+                viewPager.setPadding(marginPx, 0, marginPx, 0);
+                pagerAdapter = viewPager.getAdapter();
+            }
+            if (pagerAdapter instanceof CarouselPagerAdapter) {
+                if (mCanPlay) {
+                    stopPlay();
+                }
+                CarouselPagerAdapter<E> carouselPagerAdapter = (CarouselPagerAdapter<E>) pagerAdapter;
+                CarouselViewCreator<E> carouselViewCreator = carouselPagerAdapter.getCarouselViewCreator();
+                List<E> data = mData;
+                mData = null;
+                if (carouselOrientation == RecyclerView.VERTICAL) {
+                    verticalViewPager.setAdapter(null);
+                } else {
+                    viewPager.setAdapter(null);
+                }
+                setPages(carouselViewCreator, data);
+                if (mCanPlay) {
+                    startPlay();
+                }
+            }
+        }
+    }
+
+    @Override
+    protected void refreshInfinite() {
+        if (useViewPager2) {
+            RecyclerView.Adapter adapter = viewPager2.getAdapter();
+            if (adapter instanceof CarouselAdapter) {
+                if (mCanPlay) {
+                    stopPlay();
+                }
+                CarouselAdapter<E> carouselAdapter = ((CarouselAdapter) adapter);
+                carouselAdapter.setInfinite(isInfinite);
+                carouselAdapter.notifyDataSetChanged();
+                if (isInfinite) {
+                    viewPager2.setCurrentItem(carouselAdapter.getMiddlePosition(), false);
+                } else {
+                    viewPager2.setCurrentItem(0, false);
+                }
+                if (mCanPlay) {
+                    startPlay();
+                }
+            }
+        } else {
+            PagerAdapter pagerAdapter;
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                pagerAdapter = verticalViewPager.getAdapter();
+            } else {
+                pagerAdapter = viewPager.getAdapter();
+            }
+            if (pagerAdapter instanceof CarouselPagerAdapter) {
+                if (mCanPlay) {
+                    stopPlay();
+                }
+                CarouselPagerAdapter<E> carouselPagerAdapter = (CarouselPagerAdapter<E>) pagerAdapter;
+                carouselPagerAdapter.setInfinite(isInfinite);
+                carouselPagerAdapter.notifyDataSetChanged();
+                int position = 0;
+                if (isInfinite) {
+                    position = carouselPagerAdapter.getMiddlePosition();
+                }
+                if (carouselOrientation == RecyclerView.VERTICAL) {
+                    verticalViewPager.setCurrentItem(position, false);
+                } else {
+                    viewPager.setCurrentItem(position, false);
+                }
+                if (mCanPlay) {
+                    startPlay();
+                }
+            }
+        }
     }
 
     /**
@@ -255,16 +526,81 @@ public class CarouselView2<E> extends CarouselBaseView<E> {
      * @param data                数据
      */
     public void setPages(CarouselViewCreator<E> carouselViewCreator, List<E> data) {
-        this.mData = data;
-        if (useViewPager2) {
-            CarouselAdapter carouselAdapter = new CarouselAdapter<>(carouselViewCreator, data, isInfinite);
-            mViewPager2.setAdapter(carouselAdapter);
-            if (isInfinite) mViewPager2.setCurrentItem(carouselAdapter.getMiddlePosition(), false);
-        } else {
-            //TODO
+        // 设置数据
+        if (mData != data) {
+            if (null == mData) {
+                mData = new ArrayList<>(data);
+            } else {
+                mData.clear();
+                mData.addAll(data);
+            }
         }
+        // 设置轮播图
+        if (useViewPager2) {
+            CarouselAdapter<E> carouselAdapter;
+            RecyclerView.Adapter adapter = viewPager2.getAdapter();
+            if (null == adapter) {
+                carouselAdapter = new CarouselAdapter<>(carouselViewCreator, mData, isInfinite);
+                viewPager2.setAdapter(carouselAdapter);
+            } else {
+                carouselAdapter = (CarouselAdapter<E>) adapter;
+                carouselAdapter.setCarouselViewCreator(carouselViewCreator);
+                carouselAdapter.setData(mData);
+                carouselAdapter.setInfinite(isInfinite);
+                carouselAdapter.notifyDataSetChanged();
+            }
+            if (isInfinite) {
+                viewPager2.setCurrentItem(carouselAdapter.getMiddlePosition(), false);
+            }
+        } else {
+            CarouselPagerAdapter<E> carouselPagerAdapter;
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                PagerAdapter pagerAdapter = verticalViewPager.getAdapter();
+                if (null == pagerAdapter) {
+                    carouselPagerAdapter = new CarouselPagerAdapter<>(carouselViewCreator, data, isInfinite);
+                    verticalViewPager.setAdapter(carouselPagerAdapter);
+                } else {
+                    carouselPagerAdapter = (CarouselPagerAdapter<E>) pagerAdapter;
+                    carouselPagerAdapter.setCarouselViewCreator(carouselViewCreator);
+                    carouselPagerAdapter.setData(mData);
+                    carouselPagerAdapter.setInfinite(isInfinite);
+                    carouselPagerAdapter.notifyDataSetChanged();
+                }
+                if (isInfinite) {
+                    verticalViewPager.setCurrentItem(carouselPagerAdapter.getMiddlePosition(), false);
+                }
+            } else {
+                PagerAdapter pagerAdapter = viewPager.getAdapter();
+                if (null == pagerAdapter) {
+                    carouselPagerAdapter = new CarouselPagerAdapter<>(carouselViewCreator, data, isInfinite);
+                    viewPager.setAdapter(carouselPagerAdapter);
+                } else {
+                    carouselPagerAdapter = (CarouselPagerAdapter<E>) pagerAdapter;
+                    carouselPagerAdapter.setCarouselViewCreator(carouselViewCreator);
+                    carouselPagerAdapter.setData(mData);
+                    carouselPagerAdapter.setInfinite(isInfinite);
+                    carouselPagerAdapter.notifyDataSetChanged();
+                }
+                if (isInfinite) {
+                    viewPager.setCurrentItem(carouselPagerAdapter.getMiddlePosition(), false);
+                }
+            }
+        }
+
+        // 设置指示器
         if (mUnSelectIndicatorRes != 0 || mSelectedIndicatorRes != 0) {
-            mRvIndicators.setAdapter(new IndicatorsAdapter(data.size(), mUnSelectIndicatorRes, mSelectedIndicatorRes, mUnSelectIndicatorColor, mSelectedIndicatorColor));
+            IndicatorsAdapter indicatorsAdapter;
+            RecyclerView.Adapter adapter1 = mRvIndicators.getAdapter();
+            if (null == adapter1) {
+                indicatorsAdapter = new IndicatorsAdapter(mData.size(),
+                        mUnSelectIndicatorRes, mSelectedIndicatorRes,
+                        mUnSelectIndicatorColor, mSelectedIndicatorColor);
+            } else {
+                indicatorsAdapter = (IndicatorsAdapter) adapter1;
+                indicatorsAdapter.setItemCount(mData.size());
+                indicatorsAdapter.notifyDataSetChanged();
+            }
+            mRvIndicators.setAdapter(indicatorsAdapter);
         }
         if (mAutoPlay) {
             startPlay();
@@ -281,60 +617,80 @@ public class CarouselView2<E> extends CarouselBaseView<E> {
     }
 
     /**
-     * 设置指示器显示与隐藏
+     * 设置点击事件
      *
-     * @param visibility 显示与隐藏
+     * @param onItemClickListener 点击监听器
      */
-    public void setIndicatorsVisibility(int visibility) {
-        if (null != mRvIndicators &&
-                visibility != getIndicatorsVisibility()) {
-            mRvIndicators.setVisibility(visibility);
+    public void setOnItemClickListener(OnItemClickListener<E> onItemClickListener) {
+        if (useViewPager2) {
+            RecyclerView.Adapter adapter = viewPager2.getAdapter();
+            if (adapter instanceof CarouselAdapter) {
+                CarouselAdapter<E> carouselAdapter = (CarouselAdapter) adapter;
+                carouselAdapter.setOnItemClickListener(onItemClickListener);
+            }
+        } else {
+            PagerAdapter adapter;
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                adapter = verticalViewPager.getAdapter();
+            } else {
+                adapter = viewPager.getAdapter();
+            }
+            if (adapter instanceof CarouselPagerAdapter) {
+                CarouselPagerAdapter<E> pagerAdapter = (CarouselPagerAdapter) adapter;
+                pagerAdapter.setOnItemClickListener(onItemClickListener);
+            }
         }
     }
 
     /**
-     * @return 指示器显示隐藏状态
-     */
-    public int getIndicatorsVisibility() {
-        return null == mRvIndicators ? GONE : mRvIndicators.getVisibility();
-    }
-
-    /**
-     * 设置指示器图片资源
+     * 设置长按事件
      *
-     * @param unSelectIndicatorRes 未选中的指示器资源
-     * @param selectedIndicatorRes 已选中的指示器资源
+     * @param onItemLongClickListener 长按监听器
      */
-    public void setIndicators(int unSelectIndicatorRes, int selectedIndicatorRes) {
-        this.mUnSelectIndicatorRes = unSelectIndicatorRes;
-        this.mSelectedIndicatorRes = selectedIndicatorRes;
-        if (null != mRvIndicators.getAdapter() && mRvIndicators.getAdapter() instanceof IndicatorsAdapter) {
-            ((IndicatorsAdapter) mRvIndicators.getAdapter()).setIndicatorsRes(unSelectIndicatorRes, selectedIndicatorRes);
-        }
-    }
-
-
-    /**
-     * 设置指示器颜色资源
-     *
-     * @param unSelectIndicatorColor 未选中的指示器颜色
-     * @param selectedIndicatorColor 已选中的指示器颜色
-     */
-    public void setIndicatorsColor(int unSelectIndicatorColor, int selectedIndicatorColor) {
-        this.mUnSelectIndicatorColor = unSelectIndicatorColor;
-        this.mSelectedIndicatorColor = selectedIndicatorColor;
-        if (null != mRvIndicators.getAdapter() && mRvIndicators.getAdapter() instanceof IndicatorsAdapter) {
-            ((IndicatorsAdapter) mRvIndicators.getAdapter()).setIndicatorsColor(unSelectIndicatorColor, selectedIndicatorColor);
+    public void setOnItemLongClickListener(OnItemLongClickListener<E> onItemLongClickListener) {
+        if (useViewPager2) {
+            RecyclerView.Adapter adapter = viewPager2.getAdapter();
+            if (adapter instanceof CarouselAdapter) {
+                CarouselAdapter<E> carouselAdapter = (CarouselAdapter) adapter;
+                carouselAdapter.setOnItemLongClickListener(onItemLongClickListener);
+            }
+        } else {
+            PagerAdapter adapter;
+            if (carouselOrientation == RecyclerView.VERTICAL) {
+                adapter = verticalViewPager.getAdapter();
+            } else {
+                adapter = viewPager.getAdapter();
+            }
+            if (adapter instanceof CarouselPagerAdapter) {
+                CarouselPagerAdapter<E> pagerAdapter = (CarouselPagerAdapter) adapter;
+                pagerAdapter.setOnItemLongClickListener(onItemLongClickListener);
+            }
         }
     }
 
     /**
-     * 设置轮播间隔
+     * 设置轮播图插值器
+     * <p>
+     * 废弃原因：拖拽效果切换页面容易导致奔溃
      *
-     * @param playDuration 间隔时间
+     * @param interpolator 插值器
      */
-    public void setPlayDuration(@IntRange(from = 0) int playDuration) {
-        this.mPlayDuration = playDuration;
+    @Deprecated
+    public void setCarouselInterpolator(Interpolator interpolator) {
+        this.interpolator = interpolator;
+    }
+
+    @Override
+    public void setOrientation(@RecyclerView.Orientation int orientation) {
+        super.setOrientation(orientation);
+        if (carouselOrientation == orientation) {
+            return;
+        }
+        carouselOrientation = orientation;
+        if (useViewPager2) {
+            viewPager2.setOrientation(orientation);
+        }
+        // 不使用ViewPager2不支持动态更换方向
     }
 
     /**
@@ -348,7 +704,9 @@ public class CarouselView2<E> extends CarouselBaseView<E> {
      * 开始自动轮播
      */
     public void startPlay() {
-        if (mIsPlaying) return;
+        if (mIsPlaying) {
+            return;
+        }
         mIsPlaying = true;
         mCanPlay = true;
         mHandler.sendEmptyMessageDelayed(WHAT_AUTO_PLAY, mPlayDuration);
@@ -367,29 +725,38 @@ public class CarouselView2<E> extends CarouselBaseView<E> {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        if (mCanPlay) startPlay();
+        if (mCanPlay) {
+            startPlay();
+        }
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        if (mCanPlay) stopPlay();
+        if (mCanPlay) {
+            stopPlay();
+        }
     }
 
     @Override
     protected void onWindowVisibilityChanged(int visibility) {
         super.onWindowVisibilityChanged(visibility);
         if (visibility == VISIBLE) {
-            if (mCanPlay) startPlay();
+            if (mCanPlay) {
+                startPlay();
+            }
         } else {
-            if (mCanPlay) stopPlay();
+            if (mCanPlay) {
+                stopPlay();
+            }
         }
     }
 
-    private class CarouselPageChangeListener extends ViewPager2.OnPageChangeCallback {
+    private class ViewPager2PageChangeListener extends ViewPager2.OnPageChangeCallback {
         @Override
         public void onPageSelected(int position) {
             super.onPageSelected(position);
+            position = getRealItemPosition(position);
             CarouselView2.this.onPageSelected(position);
         }
 
@@ -399,4 +766,46 @@ public class CarouselView2<E> extends CarouselBaseView<E> {
             CarouselView2.this.onPageScrollStateChanged(state);
         }
     }
+
+    private class ViewPagerPageChangeListener implements ViewPager.OnPageChangeListener {
+
+        @Override
+        public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+
+        }
+
+        @Override
+        public void onPageSelected(int position) {
+            position = getRealItemPosition(position);
+            CarouselView2.this.onPageSelected(position);
+        }
+
+        @Override
+        public void onPageScrollStateChanged(int state) {
+            CarouselView2.this.onPageScrollStateChanged(state);
+        }
+    }
+
+    private int getRealItemPosition(int position) {
+        if (isInfinite) {
+            if (useViewPager2) {
+                CarouselAdapter<E> carouselAdapter = (CarouselAdapter) viewPager2.getAdapter();
+                if (carouselAdapter != null) {
+                    position = carouselAdapter.getRealItemPosition(position);
+                }
+            } else {
+                PagerAdapter carouselPagerAdapter;
+                if (carouselOrientation == RecyclerView.VERTICAL) {
+                    carouselPagerAdapter = verticalViewPager.getAdapter();
+                } else {
+                    carouselPagerAdapter = viewPager.getAdapter();
+                }
+                if (carouselPagerAdapter instanceof CarouselPagerAdapter) {
+                    position = ((CarouselPagerAdapter) carouselPagerAdapter).getRealItemPosition(position);
+                }
+            }
+        }
+        return position;
+    }
+
 }

@@ -9,7 +9,7 @@ import android.view.View;
 public interface CarouselViewCreator<E> {
 
     /**
-     * 注意：使用{@link CarouselView2#mViewPager2}模式下，
+     * 注意：使用{@link CarouselView2#viewPager2}模式下，
      * item布局的{@link android.view.ViewGroup}容器<p>宽高</p>必须是{@link android.view.ViewGroup.LayoutParams#MATCH_PARENT}
      * @see {@link androidx.viewpager2.widget.ViewPager2#enforceChildFillListener}
      *
@@ -17,5 +17,10 @@ public interface CarouselViewCreator<E> {
      */
     int layoutId();
 
+    /**
+     * 绑定数据
+     * @param container 容器
+     * @param item 数据
+     */
     void convert(View container, E item);
 }

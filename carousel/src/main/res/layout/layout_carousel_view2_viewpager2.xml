@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:descendantFocusability="blocksDescendants">
 
-    <com.ming.carousel.CarouselRecyclerView
-        android:id="@+id/recyclerView_carousel"
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPager2_carousel"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-    </com.ming.carousel.CarouselRecyclerView>
+    </androidx.viewpager2.widget.ViewPager2>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView_indicators"

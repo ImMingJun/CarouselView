@@ -1,12 +1,18 @@
 package com.ming.carousel;
 
-import android.view.View;
-
 /**
  * created by cmj on 2019-05-29
- * for:
+ * for:轮播图双击监听
+ *
+ * @author ming
  */
-public interface OnItemDoubleClickListener {
+public interface OnItemDoubleClickListener<E> {
 
-    void onItemDoubleClick(View childView, CarouselAdapter adapter, int position);
+    /**
+     * 双击
+     *
+     * @param itemData 点击数据
+     * @param position item位置
+     */
+    void onItemDoubleClick(E itemData, int position);
 }

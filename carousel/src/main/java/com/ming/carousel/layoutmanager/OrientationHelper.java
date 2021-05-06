@@ -17,10 +17,9 @@
 package com.ming.carousel.layoutmanager;
 
 import android.graphics.Rect;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
 import android.widget.LinearLayout;
-
-import androidx.recyclerview.widget.RecyclerView;
 
 /**
  * Helper class for LayoutManagers to abstract measurements depending on the View's orientation.

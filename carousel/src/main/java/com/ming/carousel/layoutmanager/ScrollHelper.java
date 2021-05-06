@@ -1,8 +1,7 @@
 package com.ming.carousel.layoutmanager;
 
-import android.view.View;
-
 import androidx.recyclerview.widget.RecyclerView;
+import android.view.View;
 
 public class ScrollHelper {
     /* package */ static void smoothScrollToPosition(RecyclerView recyclerView, ViewPagerLayoutManager viewPagerLayoutManager, int targetPosition) {

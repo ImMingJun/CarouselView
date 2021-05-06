@@ -2,14 +2,16 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:clipChildren="false"
     android:descendantFocusability="blocksDescendants">
 
-    <com.ming.carousel.CarouselRecyclerView
-        android:id="@+id/recyclerView_carousel"
+    <com.ming.carousel.CarouselVerticalViewPager
+        android:id="@+id/vertical_viewPager_carousel"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="wrap_content"
+        android:clipToPadding="false">
 
-    </com.ming.carousel.CarouselRecyclerView>
+    </com.ming.carousel.CarouselVerticalViewPager>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView_indicators"

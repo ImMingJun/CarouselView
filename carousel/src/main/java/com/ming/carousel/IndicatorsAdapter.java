@@ -1,12 +1,13 @@
 package com.ming.carousel;
 
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
+import com.xinhuamm.carousel.R;
 
 /**
  * created by cmj on 2019/2/16
@@ -70,6 +71,10 @@ public class IndicatorsAdapter extends RecyclerView.Adapter<IndicatorsAdapter.Vi
     @Override
     public int getItemCount() {
         return mItemCount;
+    }
+
+    public void setItemCount(int itemCount) {
+        this.mItemCount = itemCount;
     }
 
     class ViewHolder extends RecyclerView.ViewHolder {

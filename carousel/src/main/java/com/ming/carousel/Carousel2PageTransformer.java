@@ -3,27 +3,25 @@ package com.ming.carousel;
 import android.view.View;
 
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
-import androidx.viewpager.widget.ViewPager;
+import androidx.viewpager2.widget.ViewPager2;
 
 /**
  * created by cmj on 2020/3/27
  * for:轮播图页面转换
- *
  * @author ming
  */
-public class CarouselPageTransformer implements ViewPager.PageTransformer {
+public class Carousel2PageTransformer implements ViewPager2.PageTransformer {
     private static final float DEFAULT_CENTER = 0.5f;
     private static final float DEFAULT_MIN_SCALE = 1.0f;
     private float minScale = DEFAULT_MIN_SCALE;
     private static final float DEFAULT_MIN_ALPHA = 1.0f;
     private float minAlpha = DEFAULT_MIN_ALPHA;
-    private int mOrientation = RecyclerView.HORIZONTAL;
+    private int mOrientation = ViewPager2.ORIENTATION_HORIZONTAL;
 
-    public CarouselPageTransformer() {
+    public Carousel2PageTransformer() {
     }
 
-    public CarouselPageTransformer(float minScale, float minAlpha, int orientation) {
+    public Carousel2PageTransformer(float minScale, float minAlpha, int orientation) {
         this.minScale = minScale;
         this.minAlpha = minAlpha;
         this.mOrientation = orientation;
@@ -33,16 +31,8 @@ public class CarouselPageTransformer implements ViewPager.PageTransformer {
         this.minAlpha = minAlpha;
     }
 
-    public float getMinAlpha() {
-        return minAlpha;
-    }
-
     public void setMinScale(float minScale) {
         this.minScale = minScale;
-    }
-
-    public float getMinScale() {
-        return minScale;
     }
 
     @Override
@@ -56,7 +46,7 @@ public class CarouselPageTransformer implements ViewPager.PageTransformer {
             page.setAlpha(minAlpha);
             page.setScaleX(minScale);
             page.setScaleY(minScale);
-            if (mOrientation == RecyclerView.HORIZONTAL) {
+            if (mOrientation == ViewPager2.ORIENTATION_HORIZONTAL) {
                 page.setPivotX(pageWidth);
             } else {
                 page.setPivotY(pageHeight);
@@ -69,7 +59,7 @@ public class CarouselPageTransformer implements ViewPager.PageTransformer {
                 float scaleFactor = (1 + position) * (1 - minScale) + minScale;
                 page.setScaleX(scaleFactor);
                 page.setScaleY(scaleFactor);
-                if (mOrientation == RecyclerView.HORIZONTAL) {
+                if (mOrientation == ViewPager2.ORIENTATION_HORIZONTAL) {
                     page.setPivotX(pageWidth * (DEFAULT_CENTER + (DEFAULT_CENTER * -position)));
                 } else {
                     page.setPivotY(pageHeight * (DEFAULT_CENTER + (DEFAULT_CENTER * -position)));
@@ -80,7 +70,7 @@ public class CarouselPageTransformer implements ViewPager.PageTransformer {
                 float scaleFactor = (1 - position) * (1 - minScale) + minScale;
                 page.setScaleX(scaleFactor);
                 page.setScaleY(scaleFactor);
-                if (mOrientation == RecyclerView.HORIZONTAL) {
+                if (mOrientation == ViewPager2.ORIENTATION_HORIZONTAL) {
                     page.setPivotX(pageWidth * ((1 - position) * DEFAULT_CENTER));
                 } else {
                     page.setPivotY(pageHeight * ((1 - position) * DEFAULT_CENTER));
@@ -90,7 +80,7 @@ public class CarouselPageTransformer implements ViewPager.PageTransformer {
             page.setAlpha(minAlpha);
             page.setScaleX(minScale);
             page.setScaleY(minScale);
-            if (mOrientation == RecyclerView.HORIZONTAL) {
+            if (mOrientation == ViewPager2.ORIENTATION_HORIZONTAL) {
                 page.setPivotX(0);
             } else {
                 page.setPivotY(0);

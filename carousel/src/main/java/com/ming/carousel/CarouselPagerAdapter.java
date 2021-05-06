@@ -1,53 +1,48 @@
 package com.ming.carousel;
 
-import androidx.annotation.IntRange;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.recyclerview.widget.RecyclerView;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.viewpager.widget.PagerAdapter;
+import androidx.viewpager.widget.ViewPager;
+
 import java.util.List;
 
 /**
- * created by cmj on 2019/2/1
- * for:轮播图适配器
+ * 已{@link ViewPager}和{@link VerticalViewPager}实现的轮播组件数据适配器
  *
  * @author ming
+ * @since 2020/6/11
  */
-public class CarouselAdapter<E> extends RecyclerView.Adapter<CarouselAdapter.CarouselViewHolder> {
+public class CarouselPagerAdapter<E> extends PagerAdapter {
+
     public static final int MULTIPLE_COUNT = 1000;
     private boolean isInfinite;
     private List<E> mData;
-    private CarouselViewCreator<E> mCarouselViewCreator;
+    private CarouselViewCreator<E> carouselViewCreator;
     private OnItemClickListener<E> onItemClickListener;
     private OnItemLongClickListener<E> onItemLongClickListener;
 
-    CarouselAdapter(CarouselViewCreator<E> mCarouselViewCreator, List<E> data) {
-        this(mCarouselViewCreator, data, false);
-    }
-
-    CarouselAdapter(CarouselViewCreator<E> mCarouselViewCreator, List<E> data, boolean isInfinite) {
-        this.mCarouselViewCreator = mCarouselViewCreator;
+    CarouselPagerAdapter(CarouselViewCreator<E> carouselViewCreator, List<E> data, boolean isInfinite) {
+        this.carouselViewCreator = carouselViewCreator;
         this.mData = data;
         this.isInfinite = isInfinite;
     }
 
     @NonNull
     @Override
-    public CarouselViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View itemView = LayoutInflater.from(parent.getContext()).
-                inflate(mCarouselViewCreator.layoutId(), parent, false);
-        return new CarouselViewHolder(itemView);
-    }
-
-    @Override
-    public void onBindViewHolder(@NonNull CarouselViewHolder holder, int position) {
+    public Object instantiateItem(@NonNull ViewGroup container, int position) {
+        View view = LayoutInflater.from(container.getContext()).
+                inflate(carouselViewCreator.layoutId(), null, false);
         position = isInfinite ? getRealItemPosition(position) : position;
-        mCarouselViewCreator.convert(holder.itemView, mData.get(position));
-        bindClickListener(holder.itemView, position);
+        carouselViewCreator.convert(view, mData.get(position));
+        bindClickListener(view, position);
+        container.addView(view);
+        return view;
     }
 
     private void bindClickListener(View itemView, int position) {
@@ -65,7 +60,7 @@ public class CarouselAdapter<E> extends RecyclerView.Adapter<CarouselAdapter.Car
     }
 
     @Override
-    public int getItemCount() {
+    public int getCount() {
         return isInfinite ? getRealItemCount() * MULTIPLE_COUNT : getRealItemCount();
     }
 
@@ -100,11 +95,11 @@ public class CarouselAdapter<E> extends RecyclerView.Adapter<CarouselAdapter.Car
     }
 
     public void setCarouselViewCreator(CarouselViewCreator<E> carouselViewCreator) {
-        this.mCarouselViewCreator = carouselViewCreator;
+        this.carouselViewCreator = carouselViewCreator;
     }
 
     public CarouselViewCreator<E> getCarouselViewCreator() {
-        return mCarouselViewCreator;
+        return carouselViewCreator;
     }
 
     public void setData(List<E> data) {
@@ -134,10 +129,15 @@ public class CarouselAdapter<E> extends RecyclerView.Adapter<CarouselAdapter.Car
         }
     }
 
-    static class CarouselViewHolder extends RecyclerView.ViewHolder {
-
-        CarouselViewHolder(View itemView) {
-            super(itemView);
-        }
+    @Override
+    public boolean isViewFromObject(@NonNull View view, @NonNull Object object) {
+        return view == object;
     }
+
+    @Override
+    public void destroyItem(ViewGroup container, int position, @NonNull Object object) {
+        View view = (View) object;
+        container.removeView(view);
+    }
+
 }

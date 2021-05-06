@@ -1,23 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="wrap_content"
+    android:clipChildren="false"
     android:descendantFocusability="blocksDescendants">
 
-    <androidx.viewpager.widget.ViewPager
+    <com.ming.carousel.CarouselViewPager
         android:id="@+id/viewPager_carousel"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone">
+        android:layout_height="wrap_content"
+        android:clipToPadding="false">
 
-    </androidx.viewpager.widget.ViewPager>
-
-    <androidx.viewpager2.widget.ViewPager2
-        android:id="@+id/viewPager2_carousel"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-    </androidx.viewpager2.widget.ViewPager2>
+    </com.ming.carousel.CarouselViewPager>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView_indicators"
